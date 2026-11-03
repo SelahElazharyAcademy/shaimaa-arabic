@@ -2,15 +2,17 @@ import { getImageProps } from 'next/image'
 import { BrandMark } from '@/components/site/logo'
 
 /**
- * تخطيط صفحة الدخول: صورة بملء الشاشة وبطاقة النموذج فوقها.
+ * تخطيط صفحتي الدخول وإنشاء الحساب: صورة بملء الشاشة وبطاقة النموذج فوقها.
  *
  * صورتان بحسب الجهاز: على الموبايل الأستاذة في المنتصف وإصبعها نحو
  * النموذج، وعلى الحاسوب مشهد عريض تقف فيه يمين البطاقة. المتصفح يختار
  * بين المصدرين عند عرض 1000px، فلا تُحمَّل الصورة الأخرى.
+ * على الحاسوب تثبت الصورة بحجم الشاشة وتتحرك البطاقة وحدها، فلا تتمدّد الصورة
+ * مع النموذج الطويل (إنشاء الحساب).
  *
  * الصورة عنصر بصري: `alt` فارغ، واسم الأستاذة نص مخفي بصريًّا بجانب الشعار.
  */
-export default function LoginLayout({ children }: { children: React.ReactNode }) {
+export default function EntryLayout({ children }: { children: React.ReactNode }) {
   const common = { alt: '', fill: true, priority: true, quality: 90, sizes: '100vw' }
   const {
     props: { srcSet: desktop },
@@ -23,7 +25,7 @@ export default function LoginLayout({ children }: { children: React.ReactNode })
     <div className="relative isolate flex min-h-svh items-end justify-center overflow-hidden bg-brand-900 lg:items-center lg:justify-end lg:px-[4vw] lg:py-10">
       <picture
         aria-hidden
-        className="absolute inset-x-0 top-0 -z-20 block h-[62svh] md:max-lg:h-[68svh] lg:inset-0 lg:h-full"
+        className="absolute inset-x-0 top-0 -z-20 block h-[62svh] md:max-lg:h-[68svh] lg:fixed lg:inset-0 lg:h-full"
       >
         <source media="(min-width: 1000px)" srcSet={desktop} />
         <source srcSet={mobile} />
@@ -38,7 +40,7 @@ export default function LoginLayout({ children }: { children: React.ReactNode })
       {/* تعتيم خفيف بلون المنصة: يوحّد درجة الصورة ويُبقي الشعار مقروءًا */}
       <span
         aria-hidden
-        className="absolute inset-0 -z-10 bg-[linear-gradient(to_top,rgb(7_42_37/0.55),rgb(7_42_37/0.05)_45%,rgb(7_42_37/0.5)),rgb(11_64_56/0.2)] lg:bg-[linear-gradient(to_left,rgb(7_42_37/0.1),rgb(7_42_37/0.35)),rgb(11_64_56/0.2)]"
+        className="absolute inset-0 -z-10 lg:fixed bg-[linear-gradient(to_top,rgb(7_42_37/0.55),rgb(7_42_37/0.05)_45%,rgb(7_42_37/0.5)),rgb(11_64_56/0.2)] lg:bg-[linear-gradient(to_left,rgb(7_42_37/0.1),rgb(7_42_37/0.35)),rgb(11_64_56/0.2)]"
       />
 
       {/* الشعار وحده؛ الاسم للقارئ الصوتي فقط */}

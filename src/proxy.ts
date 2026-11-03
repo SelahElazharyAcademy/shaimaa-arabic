@@ -13,6 +13,12 @@ import { updateSession } from '@/lib/supabase/session'
 
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password']
 const PUBLIC_ROUTES = ['/', '/suspended', '/terms', '/privacy']
+/**
+ * مسار تبديل رمز الإيميل بجلسة (تأكيد التسجيل، استعادة كلمة المرور).
+ * يصله الزائر وهو غير مسجّل بالضرورة؛ لو حوّلناه لصفحة الدخول قبل أن يعمل
+ * ما تُبدَّل الرمز أبدًا، ويرى المستخدم صفحة الدخول بدل «كلمة مرور جديدة».
+ */
+const AUTH_CALLBACK_PREFIX = '/auth/'
 
 export async function proxy(request: NextRequest) {
   const { response, user, supabase } = await updateSession(request)
@@ -20,9 +26,10 @@ export async function proxy(request: NextRequest) {
 
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r))
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
+  const isAuthCallback = pathname.startsWith(AUTH_CALLBACK_PREFIX)
 
   if (!user) {
-    if (isAuthRoute || isPublicRoute) return response
+    if (isAuthRoute || isPublicRoute || isAuthCallback) return response
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     // بعد الدخول نُعيده إلى ما كان يقصده
@@ -53,8 +60,9 @@ export async function proxy(request: NextRequest) {
         ? '/support'
         : '/student'
 
-  // مستخدم مسجَّل لا يرى صفحات الدخول
-  if (isAuthRoute || pathname === '/') {
+  // مستخدم مسجَّل لا يرى صفحات الدخول. ما عدا «كلمة مرور جديدة»: رابط الاستعادة
+  // يُنشئ جلسة أولًا ثم يفتحها، فتحويله عنها يُضيّع الخطوة التي جاء من أجلها.
+  if ((isAuthRoute && !pathname.startsWith('/reset-password')) || pathname === '/') {
     const url = request.nextUrl.clone()
     url.pathname = home
     url.search = ''

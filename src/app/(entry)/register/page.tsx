@@ -13,7 +13,7 @@ export default async function RegisterPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-ink">إنشاء حساب طالب</h1>
+      <h1 className="font-display text-[2.125rem] font-bold leading-[1.4] text-ink">إنشاء حساب طالب</h1>
       <p className="mt-1.5 text-base text-ink-muted">
         أكمل بياناتك، ويصبح حسابك جاهزًا في دقيقة.
       </p>
