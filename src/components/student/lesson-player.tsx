@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { CheckCircle2, Lock, Maximize, VideoOff } from 'lucide-react'
+import { CheckCircle2, Lock, Maximize, ShieldAlert, VideoOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { markLessonComplete } from '@/lib/mutations/progress'
 import { Button } from '@/components/ui/button'
@@ -152,6 +152,32 @@ export function LessonPlayer({
         toast.error('تعذّر الحفظ. أعد المحاولة.')
       }
     })
+
+  /*
+   * أدوات المطوّر مفتوحة (يكشفها public/guard.js): يُزال المشغّل من الصفحة
+   * كلّه — فيُهدم إطار الفيديو ولا يبقى رابطه فيما تعرضه الأدوات.
+   * ولا يعود إلا بتحديث الصفحة بعد إغلاقها.
+   */
+  const [devtools, setDevtools] = useState(false)
+  useEffect(() => {
+    const w = window as Window & { __najahDevtools?: () => boolean }
+    if (w.__najahDevtools?.()) setDevtools(true)
+    const on = () => setDevtools(true)
+    window.addEventListener('najah:devtools', on)
+    return () => window.removeEventListener('najah:devtools', on)
+  }, [])
+
+  if (devtools) {
+    return (
+      <div className="flex aspect-video flex-col items-center justify-center rounded-[var(--radius-card)] border border-danger/30 bg-danger-bg px-6 text-center">
+        <ShieldAlert className="mb-3 size-7 text-danger" aria-hidden />
+        <p className="text-base font-semibold text-danger">تم إيقاف الفيديو</p>
+        <p className="mt-1.5 max-w-sm text-base leading-relaxed text-ink-muted">
+          أدوات المطوّر مفتوحة في المتصفّح. أغلقها ثم حدّث الصفحة لمتابعة الدرس.
+        </p>
+      </div>
+    )
+  }
 
   if (!entitled) {
     return (

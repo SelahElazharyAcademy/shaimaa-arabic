@@ -133,6 +133,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // كل المسارات عدا الملفات الساكنة والصور وملفات الميتا
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|guard.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)',
   ],
 }
