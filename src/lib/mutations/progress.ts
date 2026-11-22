@@ -18,10 +18,31 @@ export async function saveLessonProgress(input: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false }
 
-  const percent = Math.max(0, Math.min(100, Math.round(input.progressPercent)))
+  const incoming = Math.max(0, Math.min(100, Math.round(input.progressPercent)))
   const watched = Math.max(0, Math.round(input.watchedSeconds))
-  // يُعدّ مكتملًا عند ٩٠٪: نهاية الفيديو غالبًا شكر وخاتمة
-  const completed = percent >= 90
+
+  const [{ data: prev }, { data: video }] = await Promise.all([
+    supabase
+      .from('lesson_progress')
+      .select('progress_percent, completed')
+      .eq('student_id', user.id)
+      .eq('lesson_id', input.lessonId)
+      .maybeSingle(),
+    supabase
+      .from('lesson_videos')
+      .select('required_percent')
+      .eq('lesson_id', input.lessonId)
+      .maybeSingle(),
+  ])
+
+  /*
+   * النسبة لا تنزل: من أعاد مشاهدة درس من أوله لا يُمحى ما شاهده.
+   * والإكمال لا يُلغى بعد ثبوته. وحدّه نسبة الدرس نفسه من اللوحة،
+   * لا رقم ثابت — كانت ٩٠ هنا بينما المشغّل يقرأ نسبة الدرس.
+   */
+  const percent = Math.max(incoming, Number(prev?.progress_percent ?? 0))
+  const required = video?.required_percent ?? 90
+  const justCompleted = !prev?.completed && percent >= required
 
   const { error } = await supabase.from('lesson_progress').upsert(
     {
@@ -29,16 +50,15 @@ export async function saveLessonProgress(input: {
       lesson_id: input.lessonId,
       watched_seconds: watched,
       progress_percent: percent,
-      completed,
-      completed_at: completed ? new Date().toISOString() : null,
       last_watched_at: new Date().toISOString(),
+      ...(justCompleted ? { completed: true, completed_at: new Date().toISOString() } : {}),
     },
     { onConflict: 'student_id,lesson_id' },
   )
 
   if (error) return { ok: false }
 
-  if (completed) revalidatePath('/student', 'layout')
+  if (justCompleted) revalidatePath('/student', 'layout')
   return { ok: true }
 }
 

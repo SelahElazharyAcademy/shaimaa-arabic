@@ -14,6 +14,8 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { requireStudent } from '@/lib/permissions'
+import { createClient } from '@/lib/supabase/server'
+import { youTubeId } from '@/lib/utils/youtube'
 import { getLesson } from '@/lib/queries/course'
 import { Card, Badge } from '@/components/ui/card'
 import { LessonPlayer } from '@/components/student/lesson-player'
@@ -38,14 +40,24 @@ export default async function LessonPage({
   const { slug, lessonId } = await params
 
   /*
-   * العلامة المائية: الاسم مع آخر أربعة أرقام من مُعرّف الحساب.
-   * الاسم وحده قد يتكرّر بين طالبين، والمُعرّف كاملًا تسريبٌ لا داعي له —
-   * أربعة أحرف تكفي لتمييز المصدر عند الرجوع إلى قاعدة البيانات.
+   * العلامة المائية: الاسم مع رقم الموبايل.
+   * الاسم وحده قد يتكرّر بين طالبين؛ والرقم يدلّ على صاحب النسخة المسرَّبة
+   * مباشرةً، ويردع الطالب نفسه عن نشر فيديو عليه رقمه. ومن لا رقم له
+   * يظهر آخر ستة أحرف من مُعرّف حسابه.
    */
-  const watermarkLabel = `${student.fullName} · ${student.id.slice(-4)}`
+  const supabase = await createClient()
+  const { data: me } = await supabase
+    .from('profiles')
+    .select('phone')
+    .eq('id', student.id)
+    .maybeSingle()
+  const watermark = { name: student.fullName, number: me?.phone?.trim() || student.id.slice(-6) }
   const lesson = await getLesson(slug, lessonId)
 
   if (!lesson) notFound()
+
+  // رابط يوتيوب لا يُرسل إلى المتصفّح مع الصفحة؛ المشغّل يطلبه عند فتحه
+  const isYouTube = Boolean(youTubeId(lesson.videoUrl))
 
   return (
     <div className="space-y-5">
@@ -69,12 +81,14 @@ export default async function LessonPage({
 
       <LessonPlayer
         lessonId={lesson.id}
-        watermark={watermarkLabel}
-        videoUrl={lesson.videoUrl}
+        watermark={watermark}
+        isYouTube={isYouTube}
+        videoUrl={isYouTube ? null : lesson.videoUrl}
         provider={lesson.provider}
         requiredPercent={lesson.requiredPercent}
         allowDownload={lesson.allowDownload}
         watchedSeconds={lesson.watchedSeconds}
+        progressPercent={lesson.progressPercent}
         completed={lesson.completed}
         entitled={lesson.entitled}
       />

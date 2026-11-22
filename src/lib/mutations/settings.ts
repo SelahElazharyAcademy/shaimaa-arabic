@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { messageFor, toErrorCode } from '@/lib/errors'
 import { pluralAr } from '@/lib/utils/format'
+import { clearMaintenanceCache } from '@/lib/maintenance'
 
 async function adminClient() {
   const supabase = await createClient()
@@ -432,4 +433,40 @@ export async function cleanupOrphanVideos(dryRun: boolean) {
 
   revalidatePath('/admin/settings/system')
   return { ok: true, message: `حُذف ${orphanCount(orphans.length)} معلّق.` }
+}
+
+/* ===================== وضع الصيانة ===================== */
+
+/**
+ * يُكتب داخل `branding` (انظر lib/maintenance) ويُدمج مع ما فيه، فلا يمسّ
+ * الاسم والشعار. ومن غيّره يبقى في `updated_by`.
+ */
+export async function setMaintenance(formData: FormData): Promise<void> {
+  const ctx = await adminClient()
+  if (!ctx) return
+
+  const enabled = formData.get('enabled') === 'on'
+  const message = String(formData.get('message') ?? '').trim().slice(0, 500)
+
+  const { data: current } = await ctx.supabase
+    .from('platform_settings')
+    .select('value')
+    .eq('key', 'branding')
+    .maybeSingle()
+
+  const previous = (current?.value ?? {}) as Record<string, unknown>
+
+  const { error } = await ctx.supabase.from('platform_settings').upsert(
+    {
+      key: 'branding',
+      value: { ...previous, maintenance: { enabled, message } },
+      updated_by: ctx.userId,
+    },
+    { onConflict: 'key' },
+  )
+  if (error) return
+
+  clearMaintenanceCache()
+  revalidatePath('/admin/settings/maintenance')
+  revalidatePath('/maintenance')
 }

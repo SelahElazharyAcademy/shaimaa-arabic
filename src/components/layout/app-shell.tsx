@@ -51,7 +51,7 @@ export function AppShell({
             <BrandMark tone="onLight" className="h-11" />
             <span className="min-w-0">
               <span className="block text-base font-semibold leading-tight text-ink">
-                الأستاذة الشيماء أحمد
+                منصة نجاح
               </span>
               <span className="mt-0.5 block text-sm text-accent-ink">اللغة العربية</span>
             </span>

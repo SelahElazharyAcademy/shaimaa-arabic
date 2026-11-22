@@ -12,11 +12,11 @@ import { createClient } from '@/lib/supabase/server'
 import { formatNumber } from '@/lib/utils/format'
 
 export const metadata: Metadata = {
-  title: 'منصة الأستاذة الشيماء أحمد — اللغة العربية',
+  title: 'منصة نجاح — اللغة العربية',
   description:
     'شرح اللغة العربية للمرحلتين الإعدادية والثانوية: دروس بالفيديو، ملازم، اختبارات مصحّحة، وحصص مباشرة. تابع تقدّمك في كل درس.',
   openGraph: {
-    title: 'منصة الأستاذة الشيماء أحمد — اللغة العربية',
+    title: 'منصة نجاح — اللغة العربية',
     description:
       'دروس بالفيديو وملازم واختبارات وحصص مباشرة، للمرحلتين الإعدادية والثانوية.',
     locale: 'ar_EG',

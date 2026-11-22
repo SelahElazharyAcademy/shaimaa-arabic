@@ -247,3 +247,26 @@ dialog[open] {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/*
+ * حماية المحتوى في منطقة الطالب (يضيفها ContentGuard):
+ * لا تحديد للنص ولا سحب للصور، وحقول الكتابة مستثناة.
+ * والطباعة تُخرج صفحة فارغة بدل نسخة من المحتوى.
+ */
+html.content-guard body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+html.content-guard :is(input, textarea, select, [contenteditable='true']) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+html.content-guard :is(img, video) {
+  -webkit-user-drag: none;
+}
+@media print {
+  html.content-guard body {
+    display: none !important;
+  }
+}

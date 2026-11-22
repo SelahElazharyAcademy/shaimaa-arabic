@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/session'
 import { DEVICE_COOKIE, deviceCookieOptions, validDeviceId, newDeviceId, clientIp } from '@/lib/devices'
+import { readMaintenance } from '@/lib/maintenance'
 
 /**
  * وظيفتان لا ثالث لهما:
@@ -13,13 +14,27 @@ import { DEVICE_COOKIE, deviceCookieOptions, validDeviceId, newDeviceId, clientI
  */
 
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password']
-const PUBLIC_ROUTES = ['/', '/suspended', '/terms', '/privacy']
+const PUBLIC_ROUTES = ['/', '/suspended', '/terms', '/privacy', '/maintenance']
 /**
  * مسار تبديل رمز الإيميل بجلسة (تأكيد التسجيل، استعادة كلمة المرور).
  * يصله الزائر وهو غير مسجّل بالضرورة؛ لو حوّلناه لصفحة الدخول قبل أن يعمل
  * ما تُبدَّل الرمز أبدًا، ويرى المستخدم صفحة الدخول بدل «كلمة مرور جديدة».
  */
 const AUTH_CALLBACK_PREFIX = '/auth/'
+
+/**
+ * وضع الصيانة يُغلق المنصة على الجميع عدا الإدارة والدعم.
+ * صفحة الدخول تبقى مفتوحة كي يدخل المشرف ويُطفئ الصيانة.
+ */
+const MAINTENANCE_PATH = '/maintenance'
+const OPEN_IN_MAINTENANCE = ['/login', MAINTENANCE_PATH]
+
+function toMaintenance(request: NextRequest) {
+  const url = request.nextUrl.clone()
+  url.pathname = MAINTENANCE_PATH
+  url.search = ''
+  return NextResponse.redirect(url)
+}
 
 export async function proxy(request: NextRequest) {
   const { response, user, supabase } = await updateSession(request)
@@ -28,8 +43,12 @@ export async function proxy(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r))
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
   const isAuthCallback = pathname.startsWith(AUTH_CALLBACK_PREFIX)
+  const maintenance = await readMaintenance(supabase)
+  const openInMaintenance =
+    isAuthCallback || OPEN_IN_MAINTENANCE.some((r) => pathname.startsWith(r))
 
   if (!user) {
+    if (maintenance.enabled && !openInMaintenance) return toMaintenance(request)
     if (isAuthRoute || isPublicRoute || isAuthCallback) return response
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -45,6 +64,9 @@ export async function proxy(request: NextRequest) {
     .single()
 
   if (!profile) return response
+
+  const isStaff = profile.role !== 'student'
+  if (maintenance.enabled && !isStaff && !openInMaintenance) return toMaintenance(request)
 
   if (profile.status === 'suspended') {
     if (pathname === '/suspended') return response

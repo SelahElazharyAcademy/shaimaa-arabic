@@ -8,6 +8,7 @@ import {
   ScrollText,
   Database,
   ArrowLeft,
+  Wrench,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { requireAdminPage } from '@/lib/permissions'
@@ -55,6 +56,12 @@ const SECTIONS: {
     title: 'سجلّ التدقيق',
     description: 'تتبّع الإجراءات الإدارية الحسّاسة ومن نفّذها ومتى.',
     icon: ScrollText,
+  },
+  {
+    href: '/admin/settings/maintenance',
+    title: 'وضع الصيانة',
+    description: 'إغلاق المنصة مؤقتًا على الطلاب برسالة، والإدارة تعمل كالمعتاد.',
+    icon: Wrench,
   },
   {
     href: '/admin/settings/system',

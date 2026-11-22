@@ -47,7 +47,7 @@ export function HeroSection({ t, highlights }: { t: Texts; highlights: readonly 
       <div className="absolute inset-0 -z-20 lg:right-auto lg:w-[72%]">
         <Image
           src="/brand/hero.webp"
-          alt="الأستاذة الشيماء أحمد تشرح الدرس"
+          alt="المدرّسة تشرح الدرس"
           fill
           priority
           quality={90}

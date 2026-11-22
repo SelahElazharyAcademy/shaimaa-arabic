@@ -13,7 +13,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         <div className="rise-in relative z-10 flex items-center gap-4 p-12">
           <BrandMark tone="onDark" className="h-14" />
           <div>
-            <p className="text-lg font-semibold text-ink-invert">الأستاذة الشيماء أحمد</p>
+            <p className="text-lg font-semibold text-ink-invert">منصة نجاح</p>
             <p className="mt-1 text-base text-accent">اللغة العربية</p>
           </div>
         </div>
@@ -66,7 +66,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             <BrandMark tone="onLight" className="h-11" />
             <span>
               <span className="block text-base font-semibold leading-tight">
-                الأستاذة الشيماء أحمد
+                منصة نجاح
               </span>
               <span className="block text-sm text-accent">اللغة العربية</span>
             </span>

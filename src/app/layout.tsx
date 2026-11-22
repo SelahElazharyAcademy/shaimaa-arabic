@@ -24,8 +24,8 @@ const amiri = Amiri({
 
 export const metadata: Metadata = {
   title: {
-    default: 'منصة الأستاذة الشيماء أحمد',
-    template: '%s · منصة الأستاذة الشيماء أحمد',
+    default: 'منصة نجاح',
+    template: '%s · منصة نجاح',
   },
   description:
     'منصة تعليمية لمتابعة الدروس والاختبارات والحصص المباشرة، مع تتبّع تقدّمك أولًا بأول.',

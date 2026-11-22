@@ -101,14 +101,27 @@ export function bunnyPlaybackUrl(cfg: BunnyConfig, videoId: string, ttlSeconds =
 
   if (!cfg.tokenKey) return base
 
+  /*
+   * توقيع مجلّد كامل، في المسار لا في الاستعلام.
+   *
+   * قائمة HLS تشير إلى ملفات المقاطع بمسارات نسبية، والمتصفّح لا ينقل
+   * معاملات الاستعلام (?token=) إلى تلك المسارات — فكان التوقيع القديم
+   * يفتح القائمة ثم تُرفض المقاطع متى فُعّل التوثيق في المكتبة.
+   * صيغة Bunny للمسار: /bcdn_token=…&expires=…&token_path=…/المسار
+   * تجعل الرمز جزءًا من المسار، فتورثه المقاطع النسبية تلقائيًّا.
+   *
+   * القاعدة: sha256(tokenKey + tokenPath + expires + "token_path=" + tokenPath)
+   * بترميز base64url.
+   */
+  const tokenPath = `/${videoId}/`
   const expires = Math.floor(Date.now() / 1000) + ttlSeconds
-  // توثيق روابط Bunny: sha256(tokenKey + path + expires) بترميز base64url
   const token = createHash('sha256')
-    .update(`${cfg.tokenKey}${path}${expires}`)
+    .update(`${cfg.tokenKey}${tokenPath}${expires}token_path=${tokenPath}`)
     .digest('base64')
+    .replace(/\n/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '')
 
-  return `${base}?token=${token}&expires=${expires}`
+  return `https://${cfg.cdnHostname}/bcdn_token=${token}&expires=${expires}&token_path=${encodeURIComponent(tokenPath)}${path}`
 }

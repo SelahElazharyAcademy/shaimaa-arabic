@@ -1,58 +1,40 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
-import { CheckCircle2, Lock, VideoOff } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { CheckCircle2, Lock, Maximize, VideoOff } from 'lucide-react'
 import { toast } from 'sonner'
-import { saveLessonProgress, markLessonComplete } from '@/lib/mutations/progress'
+import { markLessonComplete } from '@/lib/mutations/progress'
 import { Button } from '@/components/ui/button'
 import { VideoWatermark } from '@/components/student/video-watermark'
+import { YouTubePlayer } from '@/components/student/youtube-player'
+import { useFrameFullscreen } from '@/components/student/use-frame-fullscreen'
+import { useWatchTracker } from '@/components/student/use-watch-tracker'
 
 type Props = {
   lessonId: string
   /** اسم الطالب — يظهر علامةً مائية فوق الفيديو لردع التسريب */
-  watermark: string
+  watermark: { name: string; number: string }
+  /** فيديو يوتيوب: رابطه لا يصل الصفحة، والمشغّل يطلبه من الخادم */
+  isYouTube: boolean
   videoUrl: string | null
   provider: string | null
   /** نسبة المشاهدة التي تُعدّ إكمالًا تلقائيًّا */
   requiredPercent: number
   allowDownload: boolean
   watchedSeconds: number
+  progressPercent: number
   completed: boolean
   entitled: boolean
 }
 
-/** يحوّل روابط يوتيوب/فيميو العادية إلى صيغة التضمين. */
+/** فيميو وحده بقي إطارًا عاديًّا؛ يوتيوب له مشغّله المُغلَّف. */
 function toEmbedUrl(url: string): string | null {
   try {
     const u = new URL(url)
-    const host = u.hostname.replace(/^www\./, '')
-
-    /*
-     * معاملات تُقلّل ما يدلّ على المصدر:
-     * rel=0 يحصر المقترحات في القناة نفسها، وiv_load_policy=3 يمنع
-     * التعليقات التوضيحية، وmodestbranding يُصغّر الشعار.
-     * ما لا تزيله هذه المعاملات — شريط العنوان و«مشاهدة على YouTube» —
-     * يحجبه غطاء شفّاف فوق الشريط العلوي في العارض.
-     */
-    const YT_PARAMS =
-      'rel=0&modestbranding=1&iv_load_policy=3&playsinline=1&cc_load_policy=0&color=white'
-
-    if (host === 'youtu.be') {
-      return `https://www.youtube-nocookie.com/embed${u.pathname}?${YT_PARAMS}`
-    }
-    if (host.endsWith('youtube.com')) {
-      const id = u.searchParams.get('v')
-      if (id) return `https://www.youtube-nocookie.com/embed/${id}?${YT_PARAMS}`
-      if (u.pathname.startsWith('/embed/')) {
-        return `${u.origin}${u.pathname}?${YT_PARAMS}`
-      }
-    }
-    if (host.endsWith('vimeo.com')) {
-      const id = u.pathname.split('/').filter(Boolean)[0]
-      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`
-      return url
-    }
-    return null
+    if (!u.hostname.replace(/^www\./, '').endsWith('vimeo.com')) return null
+    const id = u.pathname.split('/').filter(Boolean)[0]
+    if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`
+    return url
   } catch {
     return null
   }
@@ -63,18 +45,29 @@ const DIRECT_VIDEO = /\.(mp4|webm|ogg|m3u8)(\?|$)/i
 export function LessonPlayer({
   lessonId,
   watermark,
+  isYouTube,
   videoUrl,
   provider,
   requiredPercent,
   allowDownload,
   watchedSeconds,
+  progressPercent,
   completed,
   entitled,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
   const [isComplete, setIsComplete] = useState(completed)
   const [pending, startTransition] = useTransition()
-  const lastSaved = useRef(0)
+  const onComplete = useCallback(() => setIsComplete(true), [])
+
+  const { isFullscreen, pseudo, toggle: toggleFullscreen } = useFrameFullscreen(frameRef)
+  const { tick, save, reanchor } = useWatchTracker({
+    lessonId,
+    requiredPercent,
+    initialPercent: progressPercent,
+    onComplete,
+  })
 
   /*
    * Bunny يقدّم HLS، وهو ما لا يفهمه إلا Safari أصلًا.
@@ -107,49 +100,47 @@ export function LessonPlayer({
     }
   }, [videoUrl, provider])
 
-  // الحفظ كل ١٥ ثانية لا مع كل حدث timeupdate (يُطلق ٤ مرات في الثانية)
+  /*
+   * المشاهدة الفعلية تُعدّ بنبضة كل ثانية، والسحب يُعيد نقطة البداية بلا
+   * احتساب القفزة. وملء الشاشة الأصلي للفيديو يُحوَّل إلى ملء شاشة الإطار
+   * كي لا تسقط العلامة المائية (النقر المزدوج في Chrome يدخله مباشرة).
+   */
   useEffect(() => {
     const el = videoRef.current
     if (!el) return
 
-    if (watchedSeconds > 0 && watchedSeconds < el.duration) {
-      el.currentTime = watchedSeconds
+    const onMeta = () => {
+      if (watchedSeconds > 0 && watchedSeconds < el.duration) el.currentTime = watchedSeconds
+      reanchor(el.currentTime)
+    }
+    const onSeeked = () => reanchor(el.currentTime)
+    const onPause = () => save(Math.floor(el.currentTime), el.duration)
+    const onEnded = () => save(Math.floor(el.duration), el.duration)
+    const onNativeFs = () => {
+      if (document.fullscreenElement === el) {
+        void document.exitFullscreen().then(() => toggleFullscreen())
+      }
     }
 
-    const onTime = () => {
-      if (!el.duration || Number.isNaN(el.duration)) return
-      const now = Math.floor(el.currentTime)
-      if (now - lastSaved.current < 15) return
-      lastSaved.current = now
+    const id = setInterval(() => {
+      if (!el.paused && !el.ended) tick(el.currentTime, el.duration)
+    }, 1000)
 
-      const percent = (el.currentTime / el.duration) * 100
-
-      void saveLessonProgress({
-        lessonId,
-        watchedSeconds: now,
-        progressPercent: percent,
-      }).then(() => {
-        // الدرس يكتمل ببلوغ النسبة المطلوبة، لا بانتهاء الشريط:
-        // كثير من الدروس تُختم بثوانٍ لا تُشاهَد
-        if (percent >= requiredPercent) setIsComplete(true)
-      })
-    }
-
-    const onEnded = () => {
-      void saveLessonProgress({
-        lessonId,
-        watchedSeconds: Math.floor(el.duration),
-        progressPercent: 100,
-      }).then(() => setIsComplete(true))
-    }
-
-    el.addEventListener('timeupdate', onTime)
+    if (el.readyState >= 1) onMeta()
+    el.addEventListener('loadedmetadata', onMeta)
+    el.addEventListener('seeked', onSeeked)
+    el.addEventListener('pause', onPause)
     el.addEventListener('ended', onEnded)
+    document.addEventListener('fullscreenchange', onNativeFs)
     return () => {
-      el.removeEventListener('timeupdate', onTime)
+      clearInterval(id)
+      el.removeEventListener('loadedmetadata', onMeta)
+      el.removeEventListener('seeked', onSeeked)
+      el.removeEventListener('pause', onPause)
       el.removeEventListener('ended', onEnded)
+      document.removeEventListener('fullscreenchange', onNativeFs)
     }
-  }, [lessonId, watchedSeconds, requiredPercent])
+  }, [watchedSeconds, tick, save, reanchor, toggleFullscreen])
 
   const complete = () =>
     startTransition(async () => {
@@ -174,7 +165,7 @@ export function LessonPlayer({
     )
   }
 
-  if (!videoUrl) {
+  if (!videoUrl && !isYouTube) {
     return (
       <div className="flex aspect-video flex-col items-center justify-center rounded-[var(--radius-card)] border border-border-subtle bg-surface-muted px-6 text-center">
         <VideoOff className="mb-3 size-6 text-ink-faint" aria-hidden />
@@ -184,66 +175,85 @@ export function LessonPlayer({
     )
   }
 
-  const embed = toEmbedUrl(videoUrl)
+  const url = videoUrl ?? ''
+  const embed = isYouTube ? null : toEmbedUrl(url)
   // المستضاف داخل المنصة يصل عبر مسار موقّع لا امتداد له، فيُعرف بمقدّمه
   const isDirect =
-    provider === 'self' || provider === 'bunny' || DIRECT_VIDEO.test(videoUrl)
+    !isYouTube && (provider === 'self' || provider === 'bunny' || DIRECT_VIDEO.test(url))
+  // يوتيوب والفيديو المباشر يُقاس تقدّمهما تلقائيًّا؛ غيرهما يُعلَّم يدويًّا
+  const tracked = isYouTube || isDirect
 
   return (
     <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-brand-900">
-        <VideoWatermark label={watermark} />
+      {isYouTube ? (
+        <YouTubePlayer
+          lessonId={lessonId}
+          watermark={watermark}
+          requiredPercent={requiredPercent}
+          initialPercent={progressPercent}
+          resumeAt={watchedSeconds}
+          onComplete={onComplete}
+        />
+      ) : (
+        <div
+          ref={frameRef}
+          onContextMenu={allowDownload ? undefined : (e) => e.preventDefault()}
+          className={
+            pseudo
+              ? 'fixed inset-0 z-50 flex items-center bg-black'
+              : `relative overflow-hidden bg-brand-900 ${isFullscreen ? 'flex items-center' : 'rounded-[var(--radius-card)] border border-border-subtle'}`
+          }
+        >
+          <div className="relative w-full">
+            <VideoWatermark label={watermark.name} number={watermark.number} />
 
-        {isDirect ? (
-          <video
-            ref={videoRef}
-            // مصدر HLS يُركّبه hls.js أعلاه؛ السمة تكسره في المتصفّحات التي لا تفهمه
-            src={provider === 'bunny' ? undefined : videoUrl}
-            controls
-            controlsList={allowDownload ? undefined : 'nodownload noplaybackrate'}
-            onContextMenu={allowDownload ? undefined : (e) => e.preventDefault()}
-            disablePictureInPicture={!allowDownload}
-            playsInline
-            preload="metadata"
-            className="aspect-video w-full"
-          >
-            متصفحك لا يدعم تشغيل الفيديو.
-          </video>
-        ) : embed ? (
-          // مشغّلات الطرف الثالث لا تُتيح قراءة زمن المشاهدة، فالإكمال يدوي
-          <span className="relative block">
-            <iframe
-              src={embed}
-              title="مشغّل الدرس"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
-              allowFullScreen
-              referrerPolicy="no-referrer"
-              className="aspect-video w-full border-0"
-            />
-
-            {/*
-             * الشريط العلوي في مشغّل يوتيوب يحمل العنوان وزرّ «مشاهدة على
-             * YouTube» وزرّ المشاركة — كلها تكشف المصدر وتقود إليه.
-             * غطاء شفّاف فوقه يمنع النقر، وأزرار التحكّم أسفل الإطار تبقى
-             * عاملة لأن الغطاء لا يتجاوز ١٥٪ من الارتفاع.
-             */}
-            <span
-              aria-hidden
-              className="absolute inset-x-0 top-0 h-[15%] cursor-default"
-              onClick={(e) => e.preventDefault()}
-            />
-          </span>
-        ) : (
-          <a
-            href={videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex aspect-video items-center justify-center p-6 text-center text-base text-ink-invert underline-offset-4 hover:underline"
-          >
-            افتح الفيديو في نافذة جديدة
-          </a>
-        )}
-      </div>
+            {isDirect ? (
+              <>
+                <video
+                  ref={videoRef}
+                  // مصدر HLS يُركّبه hls.js أعلاه؛ السمة تكسره في المتصفّحات التي لا تفهمه
+                  src={provider === 'bunny' ? undefined : url}
+                  controls
+                  // ملء الشاشة من زرّ المنصة لا من المشغّل، كي تبقى العلامة المائية
+                  controlsList={allowDownload ? 'nofullscreen' : 'nodownload nofullscreen'}
+                  disablePictureInPicture
+                  playsInline
+                  preload="metadata"
+                  className="aspect-video w-full"
+                >
+                  متصفحك لا يدعم تشغيل الفيديو.
+                </video>
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="absolute end-3 top-3 z-20 grid size-9 place-items-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                  aria-label={isFullscreen ? 'الخروج من ملء الشاشة' : 'ملء الشاشة'}
+                >
+                  <Maximize className="size-4" aria-hidden />
+                </button>
+              </>
+            ) : embed ? (
+              // مشغّلات الطرف الثالث لا تُتيح قراءة زمن المشاهدة، فالإكمال يدوي
+              <iframe
+                src={embed}
+                title="مشغّل الدرس"
+                allow="autoplay; encrypted-media"
+                referrerPolicy="strict-origin-when-cross-origin"
+                className="aspect-video w-full border-0"
+              />
+            ) : (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex aspect-video items-center justify-center p-6 text-center text-base text-ink-invert underline-offset-4 hover:underline"
+              >
+                افتح الفيديو في نافذة جديدة
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         {isComplete ? (
@@ -253,11 +263,12 @@ export function LessonPlayer({
           </p>
         ) : (
           <p className="text-base text-ink-faint">
-            {isDirect ? 'يُحفظ تقدّمك تلقائيًا أثناء المشاهدة.' : 'علّم الدرس كمكتمل بعد مشاهدته.'}
+            {tracked ? 'يُحفظ تقدّمك تلقائيًا أثناء المشاهدة.' : 'علّم الدرس كمكتمل بعد مشاهدته.'}
           </p>
         )}
 
-        {!isComplete && (
+        {/* حيث تُقاس المشاهدة لا يُعلَّم الدرس يدويًّا — وإلا صار «شاف» بلا مشاهدة */}
+        {!isComplete && !tracked && (
           <Button variant="secondary" size="sm" loading={pending} onClick={complete}>
             <CheckCircle2 aria-hidden />
             تعليم كمكتمل

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowRight, BookOpen, Layers, ExternalLink, Image as ImageIcon } from 'lucide-react'
+import { ArrowRight, BookOpen, Eye, Layers, ExternalLink, Image as ImageIcon } from 'lucide-react'
 import { requireAdminPage } from '@/lib/permissions'
 import { isBunnyEnabled } from '@/lib/bunny'
 import { createClient } from '@/lib/supabase/server'
@@ -171,15 +171,24 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
         title={course.title}
         description="عدّل بيانات الكورس، ونظّم وحداته ودروسه."
         action={
-          course.status === 'published' ? (
+          <div className="flex flex-wrap gap-2">
             <Link
-              href={`/student/courses/${course.slug}`}
-              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-field)] border border-border-strong bg-surface px-4 text-base font-medium text-ink transition-colors hover:bg-surface-muted"
+              href={`/admin/courses/${course.id}/views`}
+              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-field)] bg-brand-700 px-4 text-base font-medium text-ink-invert transition-colors hover:bg-brand-800"
             >
-              <ExternalLink className="size-4" aria-hidden />
-              معاينة كطالب
+              <Eye className="size-4" aria-hidden />
+              مين شاف ومين مشافش
             </Link>
-          ) : undefined
+            {course.status === 'published' && (
+              <Link
+                href={`/student/courses/${course.slug}`}
+                className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-field)] border border-border-strong bg-surface px-4 text-base font-medium text-ink transition-colors hover:bg-surface-muted"
+              >
+                <ExternalLink className="size-4" aria-hidden />
+                معاينة كطالب
+              </Link>
+            )}
+          </div>
         }
       />
 

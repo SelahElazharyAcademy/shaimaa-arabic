@@ -168,6 +168,8 @@ export type LessonView = {
   requiredPercent: number
   allowDownload: boolean
   watchedSeconds: number
+  /** أعلى نسبة مشاهدة فعلية سُجّلت — نقطة البداية لعدّاد المشاهدة */
+  progressPercent: number
   completed: boolean
   prevId: string | null
   nextId: string | null
@@ -226,7 +228,7 @@ export async function getLesson(slug: string, lessonId: string): Promise<LessonV
       .maybeSingle(),
     supabase
       .from('lesson_progress')
-      .select('watched_seconds, completed')
+      .select('watched_seconds, progress_percent, completed')
       .eq('lesson_id', l.id)
       .maybeSingle(),
     supabase
@@ -322,6 +324,7 @@ export async function getLesson(slug: string, lessonId: string): Promise<LessonV
     requiredPercent: videoRes.data?.required_percent ?? 90,
     allowDownload: videoRes.data?.allow_download ?? false,
     watchedSeconds: progressRes.data?.watched_seconds ?? 0,
+    progressPercent: Number(progressRes.data?.progress_percent ?? 0),
     completed: progressRes.data?.completed ?? false,
     prevId: index > 0 ? (siblings[index - 1]?.id ?? null) : null,
     nextId: index >= 0 && index < siblings.length - 1 ? (siblings[index + 1]?.id ?? null) : null,

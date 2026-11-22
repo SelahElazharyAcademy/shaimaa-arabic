@@ -46,7 +46,7 @@ export const TEXT_GROUPS: TextGroup[] = [
     id: 'brand',
     title: 'الهوية في الشريط العلوي',
     items: [
-      { key: 'site.name', label: 'اسم المنصة', value: 'الأستاذة الشيماء أحمد' },
+      { key: 'site.name', label: 'اسم المنصة', value: 'منصة نجاح' },
       { key: 'site.tagline', label: 'العبارة تحت الاسم', value: 'رحلتك نحو مستقبل أفضل' },
     ],
   },
@@ -169,7 +169,7 @@ export const TEXT_GROUPS: TextGroup[] = [
       {
         key: 'footer.about',
         label: 'وصف المنصة',
-        value: 'منصة الأستاذة الشيماء أحمد لتعليم اللغة العربية — للمرحلتين الإعدادية والثانوية.',
+        value: 'منصة نجاح لتعليم اللغة العربية — للمرحلتين الإعدادية والثانوية.',
         long: true,
       },
       { key: 'footer.credit', label: 'سطر جهة التطوير', value: 'من تطوير شركة Spot Light' },

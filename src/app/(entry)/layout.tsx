@@ -46,7 +46,7 @@ export default function EntryLayout({ children }: { children: React.ReactNode })
       {/* الشعار وحده؛ الاسم للقارئ الصوتي فقط */}
       <div className="absolute inset-x-0 top-0 z-10 p-5 lg:px-12 lg:py-8">
         <BrandMark tone="onDark" className="h-14 lg:h-[4.25rem]" />
-        <span className="sr-only">الأستاذة الشيماء أحمد، اللغة العربية</span>
+        <span className="sr-only">منصة نجاح، اللغة العربية</span>
       </div>
 
       <main className="relative z-10 mt-[46svh] w-full rounded-t-[1.625rem] bg-surface px-[1.375rem] pb-11 pt-[1.875rem] shadow-[0_-12px_40px_rgb(0_0_0/0.25)] md:max-lg:mt-[50svh] md:max-lg:max-w-[34rem] lg:mt-0 lg:w-[28rem] lg:rounded-[1.5rem] lg:px-9 lg:py-[2.375rem] lg:shadow-[0_30px_80px_rgb(0_0_0/0.35)]">
