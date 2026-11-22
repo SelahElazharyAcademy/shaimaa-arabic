@@ -1,10 +1,12 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { cookies, headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { toErrorCode, messageFor } from '@/lib/errors'
 import { homePathFor } from '@/lib/permissions'
+import { DEVICE_COOKIE, deviceCookieOptions, validDeviceId, newDeviceId, clientIp } from '@/lib/devices'
 import {
   loginSchema,
   registerSchema,
@@ -69,6 +71,31 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
     // لا نُبقي جلسة لحساب موقوف
     await supabase.auth.signOut()
     return { status: 'error', message: messageFor('ACCOUNT_SUSPENDED') }
+  }
+
+  // حدّ الجهازين للطالب. القاعدة تقرّر وتتجاهل غير الطلاب
+  if ((profile?.role ?? 'student') === 'student') {
+    const cookieStore = await cookies()
+    const h = await headers()
+    let deviceId = validDeviceId(cookieStore.get(DEVICE_COOKIE)?.value)
+    if (!deviceId) {
+      deviceId = newDeviceId()
+      cookieStore.set(DEVICE_COOKIE, deviceId, deviceCookieOptions)
+    }
+
+    const { data: allowed, error: deviceError } = await supabase.rpc('register_device', {
+      p_device_id: deviceId,
+      p_ip: clientIp(h),
+      p_user_agent: h.get('user-agent') ?? undefined,
+    })
+
+    if (deviceError || allowed !== true) {
+      await supabase.auth.signOut()
+      return {
+        status: 'error',
+        message: messageFor(deviceError ? toErrorCode(deviceError) : 'DEVICE_LIMIT'),
+      }
+    }
   }
 
   const next = String(formData.get('next') ?? '')

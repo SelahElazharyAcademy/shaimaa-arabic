@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Users, Download, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Users, Download, ChevronRight, ChevronLeft, MonitorSmartphone } from 'lucide-react'
 import { requireAdminPage } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/server'
 import { getStudents, STUDENTS_PAGE_SIZE } from '@/lib/queries/admin'
 import { Card, EmptyState, Badge } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
 import { StudentsFilters } from '@/components/admin/students-filters'
-import { formatNumber, formatDate } from '@/lib/utils/format'
+import { formatNumber, formatDate, formatDateTime } from '@/lib/utils/format'
+import { ConfirmButton } from '@/components/ui/confirm-button'
+import { resetStudentDevices } from '@/lib/mutations/devices'
+import { DEVICE_LIMIT } from '@/lib/devices'
 
 export const metadata: Metadata = { title: 'الطلاب' }
 
@@ -29,6 +32,53 @@ export default async function AdminStudentsPage({
   ])
 
   const totalPages = Math.max(1, Math.ceil(total / STUDENTS_PAGE_SIZE))
+
+  // أجهزة الطلاب الظاهرين في هذه الصفحة وحدهم
+  const ids = rows.map((r) => r.id)
+  const devices = new Map<string, { ip: string | null; lastSeen: string }[]>()
+  if (ids.length > 0) {
+    const { data: deviceRows } = await supabase
+      .from('student_devices')
+      .select('user_id, ip, last_seen_at')
+      .in('user_id', ids)
+      .order('last_seen_at', { ascending: false })
+    for (const d of deviceRows ?? []) {
+      const list = devices.get(d.user_id) ?? []
+      list.push({ ip: d.ip, lastSeen: d.last_seen_at })
+      devices.set(d.user_id, list)
+    }
+  }
+
+  const devicesCell = (id: string, name: string) => {
+    const list = devices.get(id) ?? []
+    const full = list.length >= DEVICE_LIMIT
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className={`nums-ar inline-flex items-center gap-1 ${full ? 'text-warning' : 'text-ink-muted'}`}
+          title={
+            list.length
+              ? list.map((d) => `${d.ip ?? 'IP غير معروف'} · آخر ظهور ${formatDateTime(d.lastSeen)}`).join(' | ')
+              : 'لم يسجّل الدخول من أي جهاز بعد'
+          }
+        >
+          <MonitorSmartphone className="size-4" aria-hidden />
+          {formatNumber(list.length)}/{formatNumber(DEVICE_LIMIT)}
+        </span>
+        {list.length > 0 && (
+          <ConfirmButton
+            label=""
+            srLabel={`إعادة تعيين أجهزة ${name}`}
+            icon={<span aria-hidden className="text-sm">مسح</span>}
+            title="إعادة تعيين الأجهزة؟"
+            body={`ستُمسح أجهزة «${name}» المسجّلة، فيستطيع الدخول من جهازين جديدين. الجلسات المفتوحة على الأجهزة القديمة تعدّ من الجهازين.`}
+            confirmLabel="امسح الأجهزة"
+            action={resetStudentDevices.bind(null, id)}
+          />
+        )}
+      </span>
+    )
+  }
   const exportParams = new URLSearchParams()
   if (sp.q) exportParams.set('q', sp.q)
   if (sp.status) exportParams.set('status', sp.status)
@@ -87,6 +137,7 @@ export default async function AdminStudentsPage({
                     <th scope="col" className="px-5 py-3 text-start font-medium">الصف</th>
                     <th scope="col" className="px-5 py-3 text-start font-medium">المحافظة</th>
                     <th scope="col" className="px-5 py-3 text-start font-medium">الحالة</th>
+                    <th scope="col" className="px-5 py-3 text-start font-medium">الأجهزة</th>
                     <th scope="col" className="px-5 py-3 text-start font-medium">التسجيل</th>
                   </tr>
                 </thead>
@@ -114,6 +165,7 @@ export default async function AdminStudentsPage({
                           {s.status === 'active' ? 'نشط' : 'موقوف'}
                         </Badge>
                       </td>
+                      <td className="px-5 py-3.5">{devicesCell(s.id, s.fullName)}</td>
                       <td className="nums-ar px-5 py-3.5 text-ink-faint">{formatDate(s.createdAt)}</td>
                     </tr>
                   ))}
@@ -136,6 +188,7 @@ export default async function AdminStudentsPage({
                   <p className="nums-ar mt-1.5 text-sm text-ink-muted">
                     {[s.gradeName, s.governorateName, s.phone].filter(Boolean).join(' · ') || '—'}
                   </p>
+                  <div className="mt-1.5 text-sm">{devicesCell(s.id, s.fullName)}</div>
                 </li>
               ))}
             </ul>

@@ -1237,6 +1237,44 @@ export type Database = {
           },
         ]
       }
+      student_devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          id: string
+          ip: string | null
+          last_seen_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_messages: {
         Row: {
           attachment_url: string | null
@@ -1350,6 +1388,14 @@ export type Database = {
           p_pages?: string[] | null
         }
         Returns: string
+      }
+      register_device: {
+        Args: { p_device_id: string; p_ip?: string; p_user_agent?: string }
+        Returns: boolean
+      }
+      reset_student_devices: {
+        Args: { p_student: string }
+        Returns: number
       }
       set_admin_pages: {
         Args: { p_pages: string[] | null; p_user: string }

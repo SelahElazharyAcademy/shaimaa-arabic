@@ -16,6 +16,7 @@ const ACTION_LABELS: Record<string, string> = {
   manual_enrollment: 'تسجيل يدوي في كورس',
   create_staff: 'إنشاء حساب بصلاحيات',
   reset_password: 'تغيير كلمة مرور حساب',
+  reset_devices: 'إعادة تعيين أجهزة طالب',
 }
 
 const ENTITY_LABELS: Record<string, string> = {

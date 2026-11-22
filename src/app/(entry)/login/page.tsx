@@ -30,6 +30,19 @@ export default async function LoginPage({
         </div>
       )}
 
+      {params.error === 'devices' && (
+        <div
+          role="alert"
+          className="mt-5 flex items-start gap-2.5 rounded-[var(--radius-card)] bg-danger-bg p-3.5 text-base text-danger"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            حسابك مسموح له بجهازين فقط، وهو مفتوح بالفعل على جهازين. لفتحه على هذا الجهاز
+            تواصل مع الدعم لإعادة تعيين أجهزتك.
+          </span>
+        </div>
+      )}
+
       {params.error === 'auth' && (
         <div
           role="alert"

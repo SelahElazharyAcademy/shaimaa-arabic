@@ -10,6 +10,7 @@ export const ERROR_CODES = [
   'UNAUTHORIZED',
   'FORBIDDEN',
   'ACCOUNT_SUSPENDED',
+  'DEVICE_LIMIT',
   'INVALID_CODE',
   'CODE_EXPIRED',
   'CODE_ALREADY_USED',
@@ -49,6 +50,8 @@ const MESSAGES: Record<ErrorCode, string> = {
   UNAUTHORIZED: 'سجّل الدخول للمتابعة.',
   FORBIDDEN: 'ليست لديك صلاحية لهذا الإجراء.',
   ACCOUNT_SUSPENDED: 'حسابك موقوف. تواصل مع الدعم لمعرفة السبب.',
+  DEVICE_LIMIT:
+    'حسابك مسموح له بجهازين فقط، وهو مفتوح بالفعل على جهازين. لفتحه على هذا الجهاز تواصل مع الدعم لإعادة تعيين أجهزتك.',
 
   INVALID_CODE: 'الكود غير صحيح. راجع الحروف والأرقام ثم أعد المحاولة.',
   CODE_EXPIRED: 'انتهت صلاحية هذا الكود.',

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/session'
+import { DEVICE_COOKIE, deviceCookieOptions, validDeviceId, newDeviceId, clientIp } from '@/lib/devices'
 
 /**
  * وظيفتان لا ثالث لهما:
@@ -51,6 +52,24 @@ export async function proxy(request: NextRequest) {
     url.pathname = '/suspended'
     url.search = ''
     return NextResponse.redirect(url)
+  }
+
+  // حدّ الجهازين على الجلسات المفتوحة أيضًا، لا عند الدخول وحده: يشمل من كان
+  // مسجّلًا قبل تفعيل الحدّ، ومن أعادت الإدارة تعيين أجهزته.
+  // خطأ مؤقت في القاعدة لا يطرد الطالب؛ الطرد على رفض صريح فقط.
+  if (profile.role === 'student' && !isAuthCallback) {
+    const existing = validDeviceId(request.cookies.get(DEVICE_COOKIE)?.value)
+    const deviceId = existing ?? newDeviceId()
+    const { data: allowed, error } = await supabase.rpc('register_device', {
+      p_device_id: deviceId,
+      p_ip: clientIp(request.headers),
+      p_user_agent: request.headers.get('user-agent') ?? undefined,
+    })
+
+    if (!error && allowed === false) {
+      return NextResponse.redirect(new URL('/auth/device-limit', request.url))
+    }
+    if (!existing) response.cookies.set(DEVICE_COOKIE, deviceId, deviceCookieOptions)
   }
 
   const home =
