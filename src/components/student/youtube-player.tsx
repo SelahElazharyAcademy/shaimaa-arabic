@@ -148,6 +148,8 @@ export function YouTubePlayer({
 
     void Promise.all([getYouTubeSource(lessonId), loadYouTubeApi()]).then(([src, YT]) => {
       if (cancelled || !mountRef.current) return
+      // أدوات المطوّر كُشفت قبل أن يُبنى المشغّل: لا يُحمَّل الفيديو أصلًا
+      if ((window as Window & { __najahDevtools?: () => boolean }).__najahDevtools?.()) return
       if (!src) {
         setUnavailable(true)
         return
