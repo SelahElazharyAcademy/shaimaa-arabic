@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { preconnect, preload } from 'react-dom'
 import { Loader2, Maximize, Minimize, Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react'
 import { VideoWatermark } from '@/components/student/video-watermark'
 import { useFrameFullscreen } from '@/components/student/use-frame-fullscreen'
@@ -47,6 +48,8 @@ type YTNamespace = {
     el: HTMLElement,
     opts: {
       host?: string
+      width?: string
+      height?: string
       videoId: string
       playerVars?: Record<string, string | number>
       events?: {
@@ -66,8 +69,6 @@ declare global {
 
 const STATE = { ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3 } as const
 const RATES = [1, 1.25, 1.5, 2] as const
-/** ما يبقيه يوتيوب من عنوانه ظاهرًا بعد بدء التشغيل. */
-const SETTLE_MS = 3500
 
 let apiPromise: Promise<YTNamespace> | null = null
 
@@ -113,6 +114,15 @@ export function YouTubePlayer({
   resumeAt: number
   onComplete: () => void
 }) {
+  /*
+   * المتصفّح يفتح الاتصال بيوتيوب ويجلب سكربته مع الصفحة نفسها، لا بعد أن
+   * يُبنى المشغّل — يوفّر ثانية أو أكثر قبل أن تظهر الصورة.
+   */
+  preconnect('https://www.youtube-nocookie.com')
+  preconnect('https://www.youtube.com')
+  preconnect('https://i.ytimg.com')
+  preload('https://www.youtube.com/iframe_api', { as: 'script' })
+
   const frameRef = useRef<HTMLDivElement>(null)
   const mountRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
@@ -124,12 +134,6 @@ export function YouTubePlayer({
   const [duration, setDuration] = useState(0)
   const [muted, setMuted] = useState(false)
   const [rate, setRate] = useState<number>(1)
-  /*
-   * يوتيوب يعرض العنوان واسم القناة و«More videos» لثوانٍ عند كل بدء أو
-   * استئناف، حتى بلا أدوات تحكّم. الستار يبقى حتى تختفي، والصوت يبدأ معه.
-   */
-  const [settled, setSettled] = useState(false)
-
   const { isFullscreen, pseudo, toggle: toggleFullscreen } = useFrameFullscreen(frameRef)
   const { tick, save, reanchor } = useWatchTracker({
     lessonId,
@@ -151,6 +155,8 @@ export function YouTubePlayer({
       const videoId = src.id
       player = new YT.Player(mountRef.current, {
         host: 'https://www.youtube-nocookie.com',
+        width: '100%',
+        height: '100%',
         videoId,
         playerVars: {
           controls: 0,
@@ -217,17 +223,6 @@ export function YouTubePlayer({
 
   const playing = state === STATE.PLAYING || state === STATE.BUFFERING
 
-  useEffect(() => {
-    // التحميل المؤقّت أثناء المشاهدة لا يُظهر عنوان يوتيوب، فلا يُعاد الستار
-    if (state === STATE.BUFFERING) return
-    if (state !== STATE.PLAYING) {
-      setSettled(false)
-      return
-    }
-    const t = setTimeout(() => setSettled(true), SETTLE_MS)
-    return () => clearTimeout(t)
-  }, [state])
-
   const togglePlay = useCallback(() => {
     const p = playerRef.current
     if (!p) return
@@ -291,8 +286,17 @@ export function YouTubePlayer({
       }
     >
       <div className="relative aspect-video w-full select-none">
-        {/* يوتيوب يستبدل هذا العنصر بإطاره */}
-        <div ref={mountRef} className="absolute inset-0 size-full" />
+        {/*
+         * القصّ: إطار يوتيوب أطول من المساحة الظاهرة بالنصف، ومزاح لأعلى بالربع.
+         * الفيديو ١٦:٩ يملأ عرض الإطار فيقع في وسطه تمامًا كاملًا، وما فوقه
+         * وتحته شريطان أسودان يرسم عليهما يوتيوب العنوان واسم القناة و«More
+         * videos» — وهما خارج المساحة الظاهرة. فلا يظهر شيء منها، ولا
+         * حاجة لستار ولا انتظار عند التشغيل.
+         */}
+        <div className="absolute inset-x-0 top-[-25%] h-[150%] [&_iframe]:size-full">
+          {/* يوتيوب يستبدل هذا العنصر بإطاره */}
+          <div ref={mountRef} />
+        </div>
 
         {/*
          * الغطاء الكامل: يلتقط كل نقرة وكل زرّ أيمن، فلا يصل الطالب إلى
@@ -304,16 +308,6 @@ export function YouTubePlayer({
           onClick={togglePlay}
           onDoubleClick={toggleFullscreen}
         />
-
-        {/* الستار أثناء بدء التشغيل: يحجب ما يعرضه يوتيوب في ثوانيه الأولى */}
-        {playing && !settled && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-[6] grid place-items-center bg-brand-900"
-          >
-            <Loader2 className="size-8 animate-spin text-white/70" />
-          </div>
-        )}
 
         {/* الستار: في غير التشغيل يحجب العنوان والمقترحات التي يعرضها يوتيوب */}
         {!playing && (
