@@ -287,7 +287,12 @@ export function YouTubePlayer({
           : `relative overflow-hidden bg-black ${isFullscreen ? 'flex items-center' : 'rounded-[var(--radius-card)] border border-border-subtle'}`
       }
     >
-      <div className="relative aspect-video w-full select-none">
+      {/*
+       * القصّ على هذا الصندوق لا على الإطار الخارجي: في ملء الشاشة يصير
+       * الإطار الخارجي الشاشةَ كلها، فيظهر ما فوق الفيديو وتحته من يوتيوب
+       * (العنوان، الشعار، زرّ الرابط، الترجمة) — وهذا ما ظهر على موبايل طالب.
+       */}
+      <div className="relative aspect-video w-full select-none overflow-hidden">
         {/*
          * القصّ: إطار يوتيوب أطول من المساحة الظاهرة بالنصف، ومزاح لأعلى بالربع.
          * الفيديو ١٦:٩ يملأ عرض الإطار فيقع في وسطه تمامًا كاملًا، وما فوقه
