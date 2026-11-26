@@ -19,6 +19,9 @@ const ACTION_LABELS: Record<string, string> = {
   reset_devices: 'إعادة تعيين أجهزة طالب',
   delete_student: 'حذف حساب طالب',
   delete_account: 'حذف حساب',
+  trash_account: 'نقل حساب إلى السلّة',
+  restore_account: 'استرجاع حساب من السلّة',
+  purge_account: 'حذف حساب نهائيًّا',
 }
 
 const ENTITY_LABELS: Record<string, string> = {

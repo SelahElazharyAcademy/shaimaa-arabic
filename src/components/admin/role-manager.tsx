@@ -155,13 +155,11 @@ export function RoleManager({
                     label=""
                     srLabel={`حذف حساب ${p.fullName}`}
                     icon={<Trash2 aria-hidden className="text-danger" />}
-                    title="حذف الحساب نهائيًّا؟"
-                    body={`سيُحذف حساب «${p.fullName}» (${p.email}) نهائيًّا ولا يمكن استرجاعه${
-                      p.role === 'student'
-                        ? '، مع اشتراكاته وتقدّمه ونتائجه وأجهزته'
-                        : '، ومعه رسائله في محادثات الدعم'
-                    }. يبقى سجلّه في سجلّ التدقيق.`}
-                    confirmLabel="احذف الحساب"
+                    title="نقل الحساب إلى سلّة المحذوفات؟"
+                    body={`سيُقفل حساب «${p.fullName}» (${p.email}) فورًا ويختفي من القوائم، ويبقى في «سلّة المحذوفات» ١٤ يومًا يمكن استرجاعه فيها كما كان، ثم يُحذف نهائيًّا تلقائيًّا${
+                      p.role === 'student' ? '' : ' ومعه رسائله في محادثات الدعم'
+                    }.`}
+                    confirmLabel="انقل إلى السلّة"
                     action={() => deleteAccount(p.id)}
                   />
                 )}

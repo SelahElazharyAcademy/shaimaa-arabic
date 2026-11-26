@@ -1397,6 +1397,27 @@ export type Database = {
         Args: { p_user: string }
         Returns: undefined
       }
+      restore_account: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
+      purge_account: {
+        Args: { p_user: string }
+        Returns: undefined
+      }
+      list_trashed_accounts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          full_name: string
+          email: string
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          deleted_at: string
+          deleted_by_name: string | null
+          purge_at: string
+        }[]
+      }
       reset_student_devices: {
         Args: { p_student: string }
         Returns: number

@@ -62,9 +62,10 @@ export default async function LessonViewsPage({
   }
 
   const lessons = lessonsRes.data ?? []
-  const students = (enrollRes.data ?? []).map((e) => {
+  // حساب في سلّة المحذوفات لا يُقرأ ملفّه، فلا يُعدّ بين المشتركين
+  const students = (enrollRes.data ?? []).flatMap((e) => {
     const p = Array.isArray(e.profiles) ? e.profiles[0] : e.profiles
-    return { id: e.student_id, name: p?.full_name ?? '—', phone: p?.phone ?? null }
+    return p ? [{ id: e.student_id, name: p.full_name, phone: p.phone ?? null }] : []
   })
   const studentIds = students.map((s) => s.id)
   const lessonIds = lessons.map((l) => l.id)

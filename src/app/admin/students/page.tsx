@@ -110,9 +110,9 @@ export default async function AdminStudentsPage({
           label=""
           srLabel={`حذف حساب ${s.fullName}`}
           icon={<Trash2 aria-hidden className="text-danger" />}
-          title="حذف الحساب نهائيًّا؟"
-          body={`سيُحذف حساب «${s.fullName}» (${s.phone ?? s.email}) نهائيًّا مع اشتراكاته وتقدّمه ونتائجه وأجهزته، ولا يمكن استرجاعه. يبقى سجلّه في سجلّ التدقيق، والأكواد التي فعّلها تبقى مستخدمة. تأكّد أنه الحساب الزائد لا الأساسي.`}
-          confirmLabel="احذف الحساب"
+          title="نقل الحساب إلى سلّة المحذوفات؟"
+          body={`سيُقفل حساب «${s.fullName}» (${s.phone ?? s.email}) فورًا ويختفي من القوائم، وتبقى بياناته في «الإعدادات ← سلّة المحذوفات» ١٤ يومًا يمكن استرجاعه فيها، ثم يُحذف نهائيًّا تلقائيًّا. تأكّد أنه الحساب الزائد لا الأساسي.`}
+          confirmLabel="انقل إلى السلّة"
           variant="ghost"
           action={deleteAccount.bind(null, s.id)}
         />

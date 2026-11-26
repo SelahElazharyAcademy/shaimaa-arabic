@@ -24,18 +24,41 @@ export async function resetStudentDevices(studentId: string) {
   }
 }
 
+const refreshAccounts = () => {
+  revalidatePath('/admin/students')
+  revalidatePath('/admin/settings/staff')
+  revalidatePath('/admin/settings/trash')
+}
+
 /**
- * يحذف أي حساب نهائيًّا: طالبًا (لمدير بصلاحية الطلاب) أو مديرًا/دعمًا
- * (للمدير العام وحده). المدير العام وحساب المرء نفسه لا يُحذفان.
- * القواعد كلها في القاعدة (delete_account)، والعملية تُسجَّل في التدقيق.
+ * «حذف» حساب = نقله إلى سلّة المحذوفات: يُقفل فورًا ويختفي من القوائم،
+ * وتبقى بياناته ١٤ يومًا ثم يُحذف نهائيًّا تلقائيًّا.
+ * الطالب لمدير بصلاحية الطلاب، والمدير/الدعم للمدير العام وحده؛ المدير
+ * العام وحساب المرء نفسه لا يُمسّان. القواعد كلها في القاعدة.
  */
 export async function deleteAccount(userId: string) {
   const supabase = await createClient()
   const { error } = await supabase.rpc('delete_account', { p_user: userId })
-
   if (error) return { ok: false, message: messageFor(toErrorCode(error)) }
+  refreshAccounts()
+  return {
+    ok: true,
+    message: 'نُقل الحساب إلى سلّة المحذوفات. يُحذف نهائيًّا بعد ١٤ يومًا ما لم يُسترجع.',
+  }
+}
 
-  revalidatePath('/admin/students')
-  revalidatePath('/admin/settings/staff')
+export async function restoreAccount(userId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('restore_account', { p_user: userId })
+  if (error) return { ok: false, message: messageFor(toErrorCode(error)) }
+  refreshAccounts()
+  return { ok: true, message: 'استُرجع الحساب كما كان، ويستطيع صاحبه الدخول.' }
+}
+
+export async function purgeAccount(userId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('purge_account', { p_user: userId })
+  if (error) return { ok: false, message: messageFor(toErrorCode(error)) }
+  refreshAccounts()
   return { ok: true, message: 'حُذف الحساب نهائيًّا.' }
 }

@@ -9,6 +9,7 @@ import {
   Database,
   ArrowLeft,
   Wrench,
+  Trash2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { requireAdminPage } from '@/lib/permissions'
@@ -56,6 +57,12 @@ const SECTIONS: {
     title: 'سجلّ التدقيق',
     description: 'تتبّع الإجراءات الإدارية الحسّاسة ومن نفّذها ومتى.',
     icon: ScrollText,
+  },
+  {
+    href: '/admin/settings/trash',
+    title: 'سلّة المحذوفات',
+    description: 'الحسابات المحذوفة ١٤ يومًا قبل حذفها النهائي: استرجاع أو حذف فوري.',
+    icon: Trash2,
   },
   {
     href: '/admin/settings/maintenance',
