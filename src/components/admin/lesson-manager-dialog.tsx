@@ -237,6 +237,10 @@ export function LessonManagerDialog({
   /*
    * الرفع يمضي من المتصفّح إلى التخزين مباشرة، لا عبر الخادم:
    * Server Action لها حدّ حجم للجسم، ومحاضرة بحجم جيجابايت تتجاوزه.
+   *
+   * والرفع على أجزاء (TUS، قطع ٦ ميجا كما يشترط Supabase): الرفع العادي
+   * يرسل الملف دفعةً واحدة فيُرفض الكبير منه بعد دقائق بلا تقدّم ظاهر.
+   * هنا يظهر التقدّم فعلًا، وتُستأنف القطعة إن انقطعت الشبكة.
    */
   const uploadVideo = (file: File | undefined) => {
     if (!file) return
@@ -247,15 +251,62 @@ export function LessonManagerDialog({
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'mp4'
       const path = `${lesson.id}/${crypto.randomUUID()}.${ext}`
 
-      const { error } = await supabase.storage
-        .from('lesson-videos')
-        .upload(path, file, { contentType: file.type, upsert: false })
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) {
+        setProgress(null)
+        toast.error('انتهت الجلسة. سجّل الدخول من جديد ثم أعد الرفع.')
+        return
+      }
+
+      const { Upload } = await import('tus-js-client')
+      const host = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.replace(
+        '.supabase.co',
+        '.storage.supabase.co',
+      )
+
+      const uploadError = await new Promise<string | null>((resolve) => {
+        const upload = new Upload(file, {
+          endpoint: `https://${host}/storage/v1/upload/resumable`,
+          retryDelays: [0, 3000, 6000, 12000, 20000],
+          chunkSize: 6 * 1024 * 1024,
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          headers: {
+            authorization: `Bearer ${session.access_token}`,
+            'x-upsert': 'false',
+          },
+          metadata: {
+            bucketName: 'lesson-videos',
+            objectName: path,
+            contentType: file.type || 'video/mp4',
+            cacheControl: '3600',
+          },
+          onProgress: (sent, total) => setProgress(Math.round((sent / total) * 100)),
+          onError: (err) => {
+            const body = String(
+              (err as { originalResponse?: { getBody(): string } }).originalResponse?.getBody?.() ??
+                err.message,
+            )
+            resolve(
+              /size|too large|413|exceeded/i.test(body)
+                ? 'حجم الفيديو أكبر من الحدّ المسموح في إعدادات التخزين.'
+                : /mime|type/i.test(body)
+                  ? 'صيغة الملف غير مقبولة. استخدم MP4 أو WebM أو MOV.'
+                  : 'تعذّر رفع الفيديو. تأكّد من الشبكة وأعد المحاولة.',
+            )
+          },
+          onSuccess: () => resolve(null),
+        })
+        upload.start()
+      })
 
       setProgress(null)
       if (videoInput.current) videoInput.current.value = ''
 
-      if (error) {
-        toast.error('تعذّر رفع الفيديو. تأكّد من الصيغة والحجم.')
+      if (uploadError) {
+        toast.error(uploadError)
         return
       }
 
@@ -266,6 +317,7 @@ export function LessonManagerDialog({
       /*
        * الربط يجري فور الرفع لا بضغطة تالية: الملف صار في التخزين، فإن
        * أُغلقت النافذة قبل الحفظ بقي معلّقًا لا يشير إليه درس ولا يُحذف.
+       * والربط يمحو رابط يوتيوب السابق: للدرس مصدر واحد.
        */
       const res = await saveLessonVideo({
         lessonId: lesson.id,
@@ -647,6 +699,13 @@ export function LessonManagerDialog({
                 Bunny Stream أنسب للمحاضرات الطويلة: يحوّل الفيديو إلى عدّة جودات
                 فيعمل على الشبكات الضعيفة، والرفع يمضي من متصفّحك إلى Bunny مباشرةً
                 بلا حدّ حجم.
+              </p>
+            )}
+
+            {!storagePath && !bunnyId && videoUrl && (
+              <p className="text-base leading-[1.9] text-ink-muted">
+                رفع ملف فيديو يحلّ محلّ الرابط الحالي ويحذفه تلقائيًّا. ولإزالة الرابط
+                دون رفع شيء: «احذف الفيديو».
               </p>
             )}
 

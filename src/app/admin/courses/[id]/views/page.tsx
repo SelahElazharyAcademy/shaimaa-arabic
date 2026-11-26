@@ -48,13 +48,18 @@ export default async function LessonViewsPage({
       .order('sort_order'),
     supabase
       .from('enrollments')
-      .select('student_id, profiles(full_name, phone)')
+      .select('student_id, profiles!enrollments_student_id_fkey(full_name, phone)')
       .eq('course_id', id)
       .eq('status', 'active'),
   ])
 
   const course = courseRes.data
   if (!course) notFound()
+
+  // خطأ في القراءة لا يُعرض كأنه «لا مشتركين»: هكذا اختفى خطأ سابق
+  if (enrollRes.error || lessonsRes.error) {
+    throw new Error(enrollRes.error?.message ?? lessonsRes.error?.message)
+  }
 
   const lessons = lessonsRes.data ?? []
   const students = (enrollRes.data ?? []).map((e) => {

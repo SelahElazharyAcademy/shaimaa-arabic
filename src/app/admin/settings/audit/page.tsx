@@ -17,6 +17,7 @@ const ACTION_LABELS: Record<string, string> = {
   create_staff: 'إنشاء حساب بصلاحيات',
   reset_password: 'تغيير كلمة مرور حساب',
   reset_devices: 'إعادة تعيين أجهزة طالب',
+  delete_student: 'حذف حساب طالب',
 }
 
 const ENTITY_LABELS: Record<string, string> = {

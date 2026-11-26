@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Users, Download, ChevronRight, ChevronLeft, MonitorSmartphone } from 'lucide-react'
+import { Users, Download, ChevronRight, ChevronLeft, MonitorSmartphone, Copy, Trash2 } from 'lucide-react'
 import { requireAdminPage } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/server'
 import { getStudents, STUDENTS_PAGE_SIZE } from '@/lib/queries/admin'
@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { StudentsFilters } from '@/components/admin/students-filters'
 import { formatNumber, formatDate, formatDateTime } from '@/lib/utils/format'
 import { ConfirmButton } from '@/components/ui/confirm-button'
-import { resetStudentDevices } from '@/lib/mutations/devices'
+import { resetStudentDevices, deleteStudentAccount } from '@/lib/mutations/devices'
 import { DEVICE_LIMIT } from '@/lib/devices'
 
 export const metadata: Metadata = { title: 'الطلاب' }
@@ -36,17 +36,88 @@ export default async function AdminStudentsPage({
   // أجهزة الطلاب الظاهرين في هذه الصفحة وحدهم
   const ids = rows.map((r) => r.id)
   const devices = new Map<string, { ip: string | null; lastSeen: string }[]>()
+  /*
+   * الحسابات المكرّرة: طالب يفتح أكثر من حساب يترك أثرين — رقم موبايل واحد
+   * على أكثر من حساب، أو جهاز واحد (معرّف الكوكي نفسه) دخل منه أكثر من
+   * حساب. يُعلَّم الحساب، والبحث بالرقم يجمع حساباته في قائمة واحدة.
+   */
+  const duplicates = new Map<string, string[]>()
+  const addDup = (id: string, reason: string) =>
+    duplicates.set(id, [...new Set([...(duplicates.get(id) ?? []), reason])])
+
   if (ids.length > 0) {
-    const { data: deviceRows } = await supabase
-      .from('student_devices')
-      .select('user_id, ip, last_seen_at')
-      .in('user_id', ids)
-      .order('last_seen_at', { ascending: false })
+    const phones = [...new Set(rows.map((r) => r.phone).filter((p): p is string => Boolean(p)))]
+    const [{ data: deviceRows }, { data: samePhone }] = await Promise.all([
+      supabase
+        .from('student_devices')
+        .select('user_id, device_id, ip, last_seen_at')
+        .in('user_id', ids)
+        .order('last_seen_at', { ascending: false }),
+      phones.length
+        ? supabase.from('profiles').select('id, phone').eq('role', 'student').in('phone', phones)
+        : Promise.resolve({ data: [] as { id: string; phone: string | null }[] }),
+    ])
+
     for (const d of deviceRows ?? []) {
       const list = devices.get(d.user_id) ?? []
       list.push({ ip: d.ip, lastSeen: d.last_seen_at })
       devices.set(d.user_id, list)
     }
+
+    const phoneCount = new Map<string, number>()
+    for (const p of samePhone ?? []) {
+      if (p.phone) phoneCount.set(p.phone, (phoneCount.get(p.phone) ?? 0) + 1)
+    }
+    for (const r of rows) {
+      const n = r.phone ? (phoneCount.get(r.phone) ?? 0) : 0
+      if (n > 1) addDup(r.id, `نفس رقم الموبايل على ${formatNumber(n)} حسابات`)
+    }
+
+    const deviceIds = [...new Set((deviceRows ?? []).map((d) => d.device_id))]
+    if (deviceIds.length) {
+      const { data: shared } = await supabase
+        .from('student_devices')
+        .select('user_id, device_id')
+        .in('device_id', deviceIds)
+      const usersByDevice = new Map<string, Set<string>>()
+      for (const d of shared ?? []) {
+        const set = usersByDevice.get(d.device_id) ?? new Set<string>()
+        set.add(d.user_id)
+        usersByDevice.set(d.device_id, set)
+      }
+      for (const d of deviceRows ?? []) {
+        const n = usersByDevice.get(d.device_id)?.size ?? 0
+        if (n > 1) addDup(d.user_id, `نفس الجهاز دخل منه ${formatNumber(n)} حسابات`)
+      }
+    }
+  }
+
+  const accountActions = (s: (typeof rows)[number]) => {
+    const dup = duplicates.get(s.id)
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {dup && (
+          <Link
+            href={s.phone ? `/admin/students?q=${encodeURIComponent(s.phone)}` : '#'}
+            title={dup.join(' · ')}
+            className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] bg-warning-bg px-2.5 py-0.5 text-sm font-medium text-warning hover:underline"
+          >
+            <Copy className="size-3.5" aria-hidden />
+            مكرر
+          </Link>
+        )}
+        <ConfirmButton
+          label=""
+          srLabel={`حذف حساب ${s.fullName}`}
+          icon={<Trash2 aria-hidden className="text-danger" />}
+          title="حذف الحساب نهائيًّا؟"
+          body={`سيُحذف حساب «${s.fullName}» (${s.phone ?? s.email}) نهائيًّا مع اشتراكاته وتقدّمه ونتائجه وأجهزته، ولا يمكن استرجاعه. يبقى سجلّه في سجلّ التدقيق، والأكواد التي فعّلها تبقى مستخدمة. تأكّد أنه الحساب الزائد لا الأساسي.`}
+          confirmLabel="احذف الحساب"
+          variant="ghost"
+          action={deleteStudentAccount.bind(null, s.id)}
+        />
+      </span>
+    )
   }
 
   const devicesCell = (id: string, name: string) => {
@@ -95,7 +166,7 @@ export default async function AdminStudentsPage({
     <div>
       <PageHeader
         title="الطلاب"
-        description="ابحث وفلتر وصدّر بيانات الطلاب المسجّلين."
+        description="ابحث وفلتر وصدّر بيانات الطلاب. «مكرر» يعني حسابًا يشارك غيره رقم الموبايل أو الجهاز؛ اضغطها لترى حساباته معًا."
         action={
           <Link
             href={`/admin/students/export?${exportParams.toString()}`}
@@ -139,6 +210,9 @@ export default async function AdminStudentsPage({
                     <th scope="col" className="px-5 py-3 text-start font-medium">الحالة</th>
                     <th scope="col" className="px-5 py-3 text-start font-medium">الأجهزة</th>
                     <th scope="col" className="px-5 py-3 text-start font-medium">التسجيل</th>
+                    <th scope="col" className="px-5 py-3 text-start font-medium">
+                      <span className="sr-only">إجراءات</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle">
@@ -167,6 +241,7 @@ export default async function AdminStudentsPage({
                       </td>
                       <td className="px-5 py-3.5">{devicesCell(s.id, s.fullName)}</td>
                       <td className="nums-ar px-5 py-3.5 text-ink-faint">{formatDate(s.createdAt)}</td>
+                      <td className="px-5 py-3.5">{accountActions(s)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -188,7 +263,10 @@ export default async function AdminStudentsPage({
                   <p className="nums-ar mt-1.5 text-sm text-ink-muted">
                     {[s.gradeName, s.governorateName, s.phone].filter(Boolean).join(' · ') || '—'}
                   </p>
-                  <div className="mt-1.5 text-sm">{devicesCell(s.id, s.fullName)}</div>
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-sm">
+                    {devicesCell(s.id, s.fullName)}
+                    {accountActions(s)}
+                  </div>
                 </li>
               ))}
             </ul>
