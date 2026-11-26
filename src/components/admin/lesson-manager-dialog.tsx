@@ -19,7 +19,6 @@ import {
   PencilLine,
 } from 'lucide-react'
 import NextLink from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import {
   saveLessonContent,
   saveLessonVideo,
@@ -161,7 +160,6 @@ export function LessonManagerDialog({
   const [percent, setPercent] = useState(lesson.video?.requiredPercent ?? 90)
   const [allowDownload, setAllowDownload] = useState(lesson.video?.allowDownload ?? false)
   const [progress, setProgress] = useState<number | null>(null)
-  const videoInput = useRef<HTMLInputElement>(null)
   const bunnyInput = useRef<HTMLInputElement>(null)
 
   /*
@@ -231,113 +229,6 @@ export function LessonManagerDialog({
 
         upload.start()
       })
-    })
-  }
-
-  /*
-   * الرفع يمضي من المتصفّح إلى التخزين مباشرة، لا عبر الخادم:
-   * Server Action لها حدّ حجم للجسم، ومحاضرة بحجم جيجابايت تتجاوزه.
-   *
-   * والرفع على أجزاء (TUS، قطع ٦ ميجا كما يشترط Supabase): الرفع العادي
-   * يرسل الملف دفعةً واحدة فيُرفض الكبير منه بعد دقائق بلا تقدّم ظاهر.
-   * هنا يظهر التقدّم فعلًا، وتُستأنف القطعة إن انقطعت الشبكة.
-   */
-  const uploadVideo = (file: File | undefined) => {
-    if (!file) return
-
-    start(async () => {
-      setProgress(0)
-      const supabase = createClient()
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'mp4'
-      const path = `${lesson.id}/${crypto.randomUUID()}.${ext}`
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) {
-        setProgress(null)
-        toast.error('انتهت الجلسة. سجّل الدخول من جديد ثم أعد الرفع.')
-        return
-      }
-
-      const { Upload } = await import('tus-js-client')
-      const host = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.replace(
-        '.supabase.co',
-        '.storage.supabase.co',
-      )
-
-      const uploadError = await new Promise<string | null>((resolve) => {
-        const upload = new Upload(file, {
-          endpoint: `https://${host}/storage/v1/upload/resumable`,
-          retryDelays: [0, 3000, 6000, 12000, 20000],
-          chunkSize: 6 * 1024 * 1024,
-          uploadDataDuringCreation: true,
-          removeFingerprintOnSuccess: true,
-          headers: {
-            authorization: `Bearer ${session.access_token}`,
-            'x-upsert': 'false',
-          },
-          metadata: {
-            bucketName: 'lesson-videos',
-            objectName: path,
-            contentType: file.type || 'video/mp4',
-            cacheControl: '3600',
-          },
-          onProgress: (sent, total) => setProgress(Math.round((sent / total) * 100)),
-          onError: (err) => {
-            const body = String(
-              (err as { originalResponse?: { getBody(): string } }).originalResponse?.getBody?.() ??
-                err.message,
-            )
-            resolve(
-              /size|too large|413|exceeded/i.test(body)
-                ? 'حجم الفيديو أكبر من الحدّ المسموح في إعدادات التخزين.'
-                : /mime|type/i.test(body)
-                  ? 'صيغة الملف غير مقبولة. استخدم MP4 أو WebM أو MOV.'
-                  : 'تعذّر رفع الفيديو. تأكّد من الشبكة وأعد المحاولة.',
-            )
-          },
-          onSuccess: () => resolve(null),
-        })
-        upload.start()
-      })
-
-      setProgress(null)
-      if (videoInput.current) videoInput.current.value = ''
-
-      if (uploadError) {
-        toast.error(uploadError)
-        return
-      }
-
-      setStoragePath(path)
-      setBunnyId(null)
-      setVideoUrl('')
-
-      /*
-       * الربط يجري فور الرفع لا بضغطة تالية: الملف صار في التخزين، فإن
-       * أُغلقت النافذة قبل الحفظ بقي معلّقًا لا يشير إليه درس ولا يُحذف.
-       * والربط يمحو رابط يوتيوب السابق: للدرس مصدر واحد.
-       */
-      const res = await saveLessonVideo({
-        lessonId: lesson.id,
-        courseId,
-        storagePath: path,
-        videoUrl: '',
-        requiredPercent: percent,
-        allowDownload,
-      })
-
-      if (res.ok) {
-        toast.success('رُفع الفيديو ورُبط بالدرس.')
-        return
-      }
-
-      // فشل الربط يترك ملفًا لا يشير إليه درس ولا يحذفه شيء — فيُزال فورًا
-      await supabase.storage.from('lesson-videos').remove([path])
-      setStoragePath(lesson.video?.storagePath ?? null)
-      setVideoUrl(lesson.video?.url ?? '')
-      toast.error(res.message)
     })
   }
 
@@ -622,8 +513,8 @@ export function LessonManagerDialog({
               </p>
             ) : (
               <p className="text-base leading-[1.9] text-ink-muted">
-                ارفع الملف ليُستضاف داخل المنصة (الأفضل: لا يظهر مصدره ولا يُشارَك
-                رابطه)، أو ضع رابطًا خارجيًّا إن كان الفيديو على منصّة أخرى.
+                ضع رابط فيديو يوتيوب. يُعرض للطالب داخل مشغّل المنصة المحمي، بلا
+                أي رابط أو زرّ يقود إلى يوتيوب.
               </p>
             )}
 
@@ -648,25 +539,7 @@ export function LessonManagerDialog({
               </div>
             )}
 
-            <input
-              ref={videoInput}
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime"
-              className="sr-only"
-              onChange={(e) => uploadVideo(e.target.files?.[0])}
-            />
-
             <div className="flex flex-wrap gap-2.5">
-              <Button
-                variant="secondary"
-                loading={pending && progress !== null}
-                loadingText="جارٍ الرفع…"
-                onClick={() => videoInput.current?.click()}
-              >
-                <Upload aria-hidden />
-                {storagePath ? 'استبدل الملف' : 'ارفع ملف الفيديو'}
-              </Button>
-
               {bunnyEnabled && (
                 <>
                   <input
@@ -702,15 +575,8 @@ export function LessonManagerDialog({
               </p>
             )}
 
-            {!storagePath && !bunnyId && videoUrl && (
-              <p className="text-base leading-[1.9] text-ink-muted">
-                رفع ملف فيديو يحلّ محلّ الرابط الحالي ويحذفه تلقائيًّا. ولإزالة الرابط
-                دون رفع شيء: «احذف الفيديو».
-              </p>
-            )}
-
             {!storagePath && !bunnyId && (
-              <Field label="أو رابط خارجي" hint="يوتيوب أو فيميو أو رابط mp4 مباشر">
+              <Field label="رابط فيديو يوتيوب" hint="مثل https://youtu.be/… أو https://www.youtube.com/watch?v=…">
                 {({ id }) => (
                   <Input
                     id={id}

@@ -15,8 +15,6 @@ const nextConfig: NextConfig = {
   async headers() {
     const supabase = 'https://bjhegvkxxtmajyzfampa.supabase.co'
     const wsSupabase = 'wss://bjhegvkxxtmajyzfampa.supabase.co'
-    // الرفع على أجزاء (TUS) يمضي إلى نطاق التخزين المباشر لا نطاق المشروع
-    const supabaseStorage = 'https://bjhegvkxxtmajyzfampa.storage.supabase.co'
 
     /*
      * Bunny Stream: الرفع يذهب من المتصفّح إلى video.bunnycdn.com، وقوائم
@@ -47,7 +45,7 @@ const nextConfig: NextConfig = {
       // hls.js يفكّ الشفرة في عامل من blob
       "worker-src 'self' blob:",
       'frame-src https://www.youtube-nocookie.com https://player.vimeo.com',
-      `connect-src 'self' ${supabase} ${supabaseStorage} ${wsSupabase} ${bunny}${isDev ? ' ws://localhost:*' : ''}`,
+      `connect-src 'self' ${supabase} ${wsSupabase} ${bunny}${isDev ? ' ws://localhost:*' : ''}`,
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

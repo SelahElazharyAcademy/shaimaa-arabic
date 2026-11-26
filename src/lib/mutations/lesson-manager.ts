@@ -1,5 +1,6 @@
 'use server'
 
+import { youTubeId } from '@/lib/utils/youtube'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { messageFor, toErrorCode } from '@/lib/errors'
@@ -108,20 +109,14 @@ export async function saveLessonVideo(input: {
   const ctx = await adminClient()
   if (!ctx) return { ok: false, message: messageFor('FORBIDDEN') }
 
+  /*
+   * المصدر الوحيد المقبول: رابط يوتيوب. أُلغي الرفع المباشر من اللوحة
+   * (طلب العميل)، والقاعدة هنا لا الواجهة: طلب يدوي برابط آخر يُرفض أيضًا.
+   */
   const url = input.videoUrl.trim()
-  if (!input.storagePath && !url) {
-    return { ok: false, message: 'ارفع ملفًا أو اكتب رابطًا.' }
-  }
-
-  if (!input.storagePath && url) {
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol !== 'https:') {
-        return { ok: false, message: 'الرابط يجب أن يبدأ بـ https.' }
-      }
-    } catch {
-      return { ok: false, message: 'رابط غير صحيح.' }
-    }
+  if (!url) return { ok: false, message: 'اكتب رابط فيديو يوتيوب.' }
+  if (!youTubeId(url) || !url.startsWith('https://')) {
+    return { ok: false, message: 'الرابط ليس رابط فيديو يوتيوب صحيحًا.' }
   }
 
   const percent = Math.min(100, Math.max(10, Math.round(input.requiredPercent)))
@@ -129,11 +124,11 @@ export async function saveLessonVideo(input: {
   const { error } = await ctx.supabase.from('lesson_videos').upsert(
     {
       lesson_id: input.lessonId,
-      storage_path: input.storagePath,
-      // المصدر واحد: حفظ ملف أو رابط يُلغي ارتباط Bunny إن وُجد
+      // المصدر واحد: حفظ الرابط يُلغي أي ملف أو ارتباط Bunny سابق
+      storage_path: null,
       bunny_video_id: null,
-      video_url: input.storagePath ? '' : url,
-      provider: input.storagePath ? 'self' : 'external',
+      video_url: url,
+      provider: 'external',
       required_percent: percent,
       allow_download: input.allowDownload,
     },
