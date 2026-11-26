@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { StudentsFilters } from '@/components/admin/students-filters'
 import { formatNumber, formatDate, formatDateTime } from '@/lib/utils/format'
 import { ConfirmButton } from '@/components/ui/confirm-button'
-import { resetStudentDevices, deleteStudentAccount } from '@/lib/mutations/devices'
+import { resetStudentDevices, deleteAccount } from '@/lib/mutations/devices'
 import { DEVICE_LIMIT } from '@/lib/devices'
 
 export const metadata: Metadata = { title: 'الطلاب' }
@@ -114,7 +114,7 @@ export default async function AdminStudentsPage({
           body={`سيُحذف حساب «${s.fullName}» (${s.phone ?? s.email}) نهائيًّا مع اشتراكاته وتقدّمه ونتائجه وأجهزته، ولا يمكن استرجاعه. يبقى سجلّه في سجلّ التدقيق، والأكواد التي فعّلها تبقى مستخدمة. تأكّد أنه الحساب الزائد لا الأساسي.`}
           confirmLabel="احذف الحساب"
           variant="ghost"
-          action={deleteStudentAccount.bind(null, s.id)}
+          action={deleteAccount.bind(null, s.id)}
         />
       </span>
     )

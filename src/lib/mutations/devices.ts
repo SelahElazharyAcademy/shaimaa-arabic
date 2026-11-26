@@ -25,16 +25,17 @@ export async function resetStudentDevices(studentId: string) {
 }
 
 /**
- * يحذف حساب طالب نهائيًّا — للحسابات المكرّرة لنفس الطالب.
- * الصلاحية والقيود (طالب فقط) في القاعدة، والعملية تُسجَّل في التدقيق
- * ببيانات الحساب والأكواد التي فعّلها.
+ * يحذف أي حساب نهائيًّا: طالبًا (لمدير بصلاحية الطلاب) أو مديرًا/دعمًا
+ * (للمدير العام وحده). المدير العام وحساب المرء نفسه لا يُحذفان.
+ * القواعد كلها في القاعدة (delete_account)، والعملية تُسجَّل في التدقيق.
  */
-export async function deleteStudentAccount(studentId: string) {
+export async function deleteAccount(userId: string) {
   const supabase = await createClient()
-  const { error } = await supabase.rpc('delete_student_account', { p_student: studentId })
+  const { error } = await supabase.rpc('delete_account', { p_user: userId })
 
   if (error) return { ok: false, message: messageFor(toErrorCode(error)) }
 
   revalidatePath('/admin/students')
+  revalidatePath('/admin/settings/staff')
   return { ok: true, message: 'حُذف الحساب نهائيًّا.' }
 }

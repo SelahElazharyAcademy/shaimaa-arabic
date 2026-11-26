@@ -1393,8 +1393,8 @@ export type Database = {
         Args: { p_device_id: string; p_ip?: string; p_user_agent?: string }
         Returns: boolean
       }
-      delete_student_account: {
-        Args: { p_student: string }
+      delete_account: {
+        Args: { p_user: string }
         Returns: undefined
       }
       reset_student_devices: {

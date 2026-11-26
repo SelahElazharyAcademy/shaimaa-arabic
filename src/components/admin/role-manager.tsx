@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { ShieldCheck, Search } from 'lucide-react'
+import { ShieldCheck, Search, Trash2 } from 'lucide-react'
 import { setUserRole } from '@/lib/mutations/auth'
+import { deleteAccount } from '@/lib/mutations/devices'
+import { ConfirmButton } from '@/components/ui/confirm-button'
 import { Button } from '@/components/ui/button'
 import { Badge, EmptyState } from '@/components/ui/card'
 import { AdminPagesEditor } from '@/components/admin/admin-pages-editor'
@@ -33,11 +35,22 @@ const ROLE_SCOPE: Record<string, string> = {
 export function RoleManager({
   people,
   canEditPages,
+  meId,
+  isSuperAdmin,
 }: {
   people: Row[]
   /** قائمة الصفحات بيد المدير العام وحده — والقاعدة تفرض ذلك أيضًا */
   canEditPages: boolean
+  meId: string
+  isSuperAdmin: boolean
 }) {
+  /*
+   * من يُحذف: الطالب لأي مدير هنا، والمدير والدعم للمدير العام وحده.
+   * المدير العام وحساب المرء نفسه لا يُحذفان. والقاعدة تفرض هذا كله؛
+   * إخفاء الزرّ هنا تجربة استخدام لا حماية.
+   */
+  const canDelete = (p: Row) =>
+    p.id !== meId && p.role !== 'super_admin' && (p.role === 'student' || isSuperAdmin)
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [, start] = useTransition()
@@ -70,7 +83,7 @@ export function RoleManager({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="ابحث بالاسم أو البريد لتعيين دور…"
+          placeholder="ابحث بالاسم أو البريد لتعيين دور أو حذف الحساب…"
           className="h-full w-full bg-transparent text-base text-ink outline-none placeholder:text-ink-faint"
         />
       </label>
@@ -135,6 +148,22 @@ export function RoleManager({
                       </Button>
                     )}
                   </>
+                )}
+
+                {canDelete(p) && (
+                  <ConfirmButton
+                    label=""
+                    srLabel={`حذف حساب ${p.fullName}`}
+                    icon={<Trash2 aria-hidden className="text-danger" />}
+                    title="حذف الحساب نهائيًّا؟"
+                    body={`سيُحذف حساب «${p.fullName}» (${p.email}) نهائيًّا ولا يمكن استرجاعه${
+                      p.role === 'student'
+                        ? '، مع اشتراكاته وتقدّمه ونتائجه وأجهزته'
+                        : '، ومعه رسائله في محادثات الدعم'
+                    }. يبقى سجلّه في سجلّ التدقيق.`}
+                    confirmLabel="احذف الحساب"
+                    action={() => deleteAccount(p.id)}
+                  />
                 )}
               </span>
             </li>

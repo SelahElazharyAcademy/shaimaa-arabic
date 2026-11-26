@@ -20,6 +20,8 @@ export const ERROR_CODES = [
   'COURSE_NOT_FOUND',
   'COURSE_NOT_AVAILABLE',
   'STUDENT_NOT_FOUND',
+  'ACCOUNT_NOT_FOUND',
+  'CANNOT_DELETE_SELF',
   'INVALID_QUANTITY',
   'QUANTITY_EXCEEDS_LIMIT',
   'INVALID_DURATION',
@@ -63,6 +65,8 @@ const MESSAGES: Record<ErrorCode, string> = {
   COURSE_NOT_FOUND: 'المقرر غير موجود.',
   COURSE_NOT_AVAILABLE: 'هذا المقرر غير متاح حاليًا.',
   STUDENT_NOT_FOUND: 'لم نعثر على هذا الطالب.',
+  ACCOUNT_NOT_FOUND: 'لم نعثر على هذا الحساب. ربما حُذف بالفعل.',
+  CANNOT_DELETE_SELF: 'لا يمكنك حذف حسابك أنت.',
 
   INVALID_QUANTITY: 'أدخل عددًا صحيحًا أكبر من صفر.',
   QUANTITY_EXCEEDS_LIMIT: 'الحد الأقصى ٥٠٠ كود في الدفعة الواحدة.',

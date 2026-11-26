@@ -32,7 +32,7 @@ export default async function StaffSettingsPage() {
 
       <PageHeader
         title="المشرفون والصلاحيات"
-        description="من يدخل لوحة الإدارة وما الذي يستطيع فعله فيها."
+        description="من يدخل لوحة الإدارة وما الذي يستطيع فعله فيها. ابحث عن أي حساب بالبريد لتعيين دوره أو حذفه."
       />
 
       <Card>
@@ -48,6 +48,8 @@ export default async function StaffSettingsPage() {
         <NewStaffForm />
         <RoleManager
           canEditPages={me.role === 'super_admin'}
+          isSuperAdmin={me.role === 'super_admin'}
+          meId={me.id}
           people={people.map((p) => ({
             id: p.id,
             fullName: p.full_name,
